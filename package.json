@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "tsc --build && node ./dist/rtc.js",
     "start": "node ./dist/rtc.js",
-    "build": "npm install"
+    "build": "tsc --build"
   },
   "keywords": [],
   "author": "",
