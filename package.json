@@ -4,7 +4,9 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "tsc --build && node ./dist/rtc.js"
+    "dev": "tsc --build && node ./dist/rtc.js",
+    "start": "node ./dist/rtc.js",
+    "build": "npm install"
   },
   "keywords": [],
   "author": "",
