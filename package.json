@@ -14,9 +14,9 @@
   "type": "module",
   "dependencies": {
     "typescript": "^5.9.2",
-    "ws": "^8.18.3"
+    "ws": "^8.18.3",
+    "@types/ws": "^8.18.1"
   },
   "devDependencies": {
-    "@types/ws": "^8.18.1"
   }
 }
