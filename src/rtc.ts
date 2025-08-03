@@ -112,12 +112,12 @@ wss.on("connection", (socket)=>{
             const parsedMessage = JSON.parse(rawMessage.toString())
             console.log(`Received message type: ${parsedMessage.type}`);
 
-            switch(parsedMessage){
+            switch(parsedMessage.type){
                 case "join":
                     handleJoinRoom(socket, parsedMessage.payload, connectionId)
                     break;
 
-                case "chart":
+                case "chat":
                     handleChatMessage(socket, parsedMessage.payload);
                     break;
                 
@@ -129,9 +129,19 @@ wss.on("connection", (socket)=>{
                     }))
             }
         } catch (error) {
-            console.log("Problem in connection", error);
+            console.log("PFailed to parse message or handle logic: ", error);
         }
-    })
+    });
+
+
+    socket.on('close', ()=>{
+        cleanUpUser(socket)
+    });
+
+    socket.on('error', (error) => {
+        console.error("WebSocket error:", error);
+        cleanUpUser(socket);
+    });
 })
 
 function handleJoinRoom(socket:WebSocket, payload:any, connectionId:string){
@@ -279,9 +289,3 @@ setInterval(() => {
 }, 300000); // Log every 5 minutes
 
 console.log("Enhanced Chat Server started on port 8080");
-console.log("Features:");
-console.log("- Room-based chat");
-console.log("- User identity management");
-console.log("- System notifications");
-console.log("- Automatic cleanup");
-console.log("- Connection statistics");
