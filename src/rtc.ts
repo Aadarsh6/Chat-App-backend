@@ -45,15 +45,17 @@ const getOrCreateRoom = (roomId: string): Room | undefined => {
 }
 
 
-const broadcastToRoom = (roomId: string, message: any, excludedSocket?: WebSocket) => {
-    const room = activeRoom.get(roomId)
-    if(!room) return
+function broadcastToRoom(roomId: string, message: any, excludeSocket?: WebSocket) {
+    const room = activeRoom.get(roomId);
+    if (!room) return;
 
     room.users.forEach(user => {
-        if(excludedSocket && user.socket === excludedSocket ) return  //! will not sent the same messsage to me which i sent in a room
-
-        if(user.socket.readyState === WebSocket.OPEN){
-            user.socket.send(JSON.stringify(message))
+        // Skip the sender if excludeSocket is provided
+        if (excludeSocket && user.socket === excludeSocket) return;
+        
+        // Only send if the socket is still open
+        if (user.socket.readyState === WebSocket.OPEN) {
+            user.socket.send(JSON.stringify(message));
         }
     });
 }
@@ -96,3 +98,190 @@ console.log(`User ${user.userName} (${user.id}) disconnected. Total connections:
 }
 
 //!websocket connection setup
+
+//? Hoisting is a JavaScript mechanism where variable and function declarations are moved (hoisted) to the top of   their scope at compile time — before the code is executed.
+
+wss.on("connection", (socket)=>{
+    totalConnection++;
+    const connectionId = generateUserId();
+    console.log(`New connection established ID: ${connectionId} Total connection: ${totalConnection}`);
+    
+
+    socket.on("message", (rawMessage)=>{
+        try {
+            const parsedMessage = JSON.parse(rawMessage.toString())
+            console.log(`Received message type: ${parsedMessage.type}`);
+
+            switch(parsedMessage){
+                case "join":
+                    handleJoinRoom(socket, parsedMessage.payload, connectionId)
+                    break;
+
+                case "chart":
+                    handleChatMessage(socket, parsedMessage.payload);
+                    break;
+                
+                default:
+                    console.log(`Unknown message type ${parsedMessage.type}`);
+                    socket.send(JSON.stringify({
+                        type: "error",
+                        message: "Invalid message type"
+                    }))
+            }
+        } catch (error) {
+            console.log("Problem in connection", error);
+        }
+    })
+})
+
+function handleJoinRoom(socket:WebSocket, payload:any, connectionId:string){
+    const { roomId, userName } = payload
+
+    if(!roomId || !userName){
+        socket.send(JSON.stringify({
+            type:"error",
+            message: "Required both roomId and userName"
+        }))
+        return;
+    }
+
+    const existingUser = findUserBySocket(socket);
+    if(existingUser){
+        console.log(`User ${existingUser.userName} is switching rooms`);
+        cleanUpUser(socket)
+    }
+
+    //!creating user object
+
+    const newUser:User = {
+        socket: socket, 
+        room: roomId,
+        userName: userName,
+        joinedAt: new Date(),
+        id: connectionId
+    }
+
+    allUsers.push(newUser)
+
+    //*Get of create the room 
+    const room = getOrCreateRoom(roomId);
+
+
+    //*check for duplicate userName in a single room;
+
+    const duplicateUser = room?.users.find(user=> user.userName === userName)
+
+    if(duplicateUser){
+        let count = 1;
+        let newUserName = userName;
+
+        while(room?.users.find(user => user.userName === newUserName)){
+            count++;
+            newUserName = `${newUserName} ${count}`
+        }
+        newUser.userName = newUserName
+
+        socket.send(JSON.stringify({
+            type: "system",
+            message: `Username was changed to "${newUserName}" to avoid conflicts`
+        }));
+    }
+    room?.users.push(newUser)
+
+    console.log(`${newUser.userName} joined room "${roomId}". Room now has ${room?.users.length} users.`);
+
+    // Send welcome message to the user
+    socket.send(JSON.stringify({
+        type: "system",
+        message: `Welcome to room "${roomId}"! There are ${room?.users.length} users in this room.`
+    }));
+
+
+     sendSystemMessage(roomId, `${newUser.userName} joined the room`, socket);
+
+    // Send current room info to the new user
+    const otherUsers = room?.users.filter(u => u.socket !== socket).map(u => u.userName);
+    //@ts-ignore
+    if (otherUsers.length > 0) {
+        socket.send(JSON.stringify({
+            type: "system",
+            //@ts-ignore
+            message: `Other users in room: ${otherUsers.join(", ")}`
+        }));
+    }
+}
+
+function handleChatMessage(socket:WebSocket, payload:any){
+    const { message, sender }  = payload
+    const user = findUserBySocket(socket)
+        if (!user) {
+        socket.send(JSON.stringify({
+            type: "error",
+            message: "You must join a room first"
+        }));
+        return;
+    }
+
+    if(!message || message.trim() === ""){
+          socket.send(JSON.stringify({
+            type: "error",
+            message: "Message cannot be empty"
+        }));
+        return;
+    }
+
+    const room = activeRoom.get(user.room);
+    if(room){
+        room.messageCount++;
+    }
+    console.log(`${user.userName} in room "${user.room}": ${message}`);
+
+    //!broadcast message to all user in room
+
+    const chatMessage = {
+        type: "chat",
+        sender: user.userName,
+        message: message.trim(),
+        timeStamp: new Date().toISOString(),
+        roomId: user.room
+    };
+    broadcastToRoom(user.room, chatMessage)
+}
+
+//?cleanup of inactive user
+
+setInterval(()=>{
+ let cleanedUp = 0;
+ 
+ allUsers.forEach(user=> {
+    if(user.socket.readyState !== WebSocket.OPEN){
+        cleanUpUser(user.socket);
+        cleanedUp++
+    }
+ });
+ 
+    if (cleanedUp > 0) {
+        console.log(`Cleaned up ${cleanedUp} inactive connections`);
+    }
+
+}, 30000);
+
+// Log server statistics
+setInterval(() => {
+    console.log(`=== Server Statistics ===`);
+    console.log(`Active connections: ${allUsers.length}`);
+    console.log(`Active rooms: ${activeRoom.size}`);
+    
+    activeRoom.forEach((room, roomId) => {
+        console.log(`  Room "${roomId}": ${room.users.length} users, ${room.messageCount} messages`);
+    });
+    console.log(`========================`);
+}, 300000); // Log every 5 minutes
+
+console.log("Enhanced Chat Server started on port 8080");
+console.log("Features:");
+console.log("- Room-based chat");
+console.log("- User identity management");
+console.log("- System notifications");
+console.log("- Automatic cleanup");
+console.log("- Connection statistics");
