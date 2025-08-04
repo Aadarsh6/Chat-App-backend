@@ -4,19 +4,19 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "tsc --build && node ./dist/rtc.js",
-    "start": "node ./dist/rtc.js",
-    "build": "tsc --build"
-  },
+  "dev": "tsc --build && node ./dist/rtc.js",
+  "start": "node ./dist/rtc.js",
+  "build": "npm install && tsc --build"
+},
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "module",
   "dependencies": {
-    "typescript": "^5.9.2",
-    "ws": "^8.18.3",
-    "@types/ws": "^8.18.1"
+    "ws": "^8.18.3"
   },
   "devDependencies": {
+    "typescript": "^5.9.2",
+    "@types/ws": "^8.18.1"
   }
 }
