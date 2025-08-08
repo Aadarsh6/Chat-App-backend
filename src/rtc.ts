@@ -203,7 +203,7 @@ function handleJoinRoom(socket:WebSocket, payload:any, connectionId:string){
     // Send welcome message to the user
     socket.send(JSON.stringify({
         type: "system",
-        message: `Welcome to room ${roomId}. There are total ${room?.users.length} users including you.`
+        message: `Welcome to room ${roomId}. ${room?.users.length} total users including you.`
     }));
 
 
